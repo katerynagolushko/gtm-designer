@@ -23,7 +23,7 @@ npm run setup             # creates the SQLite DB and seeds the corpus from data
 npm run dev
 ```
 
-Open http://localhost:3000. Sign in with any email — without `RESEND_API_KEY` set, the magic
+Open http://localhost:3001. Sign in with any email — without `RESEND_API_KEY` set, the magic
 link is printed to the terminal running the dev server. Sign in with `ADMIN_EMAIL` to see
 `/admin`.
 

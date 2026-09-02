@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "prisma generate && next build",
     "vercel-build": "bash scripts/vercel-build.sh",
     "start": "next start",
