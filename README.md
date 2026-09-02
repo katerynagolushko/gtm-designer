@@ -16,7 +16,7 @@ cards citing real documented founder GTM experiments, each linking to its source
 ## Quick start
 
 ```bash
-cd gtm-sprint-designer
+cd gtm-designer
 npm install
 cp .env.example .env      # fill in ANTHROPIC_API_KEY at minimum
 npm run setup             # creates the SQLite DB and seeds the corpus from data/cases_v2.csv
@@ -85,8 +85,8 @@ SQLite doesn't persist on serverless — use Postgres in production:
 
 1. In the Vercel project: Storage → Create Database (Neon, free tier works) and connect it —
    this sets a Postgres `DATABASE_URL` automatically.
-2. Project Settings → Build & Deployment: **Framework = Next.js**, **Root Directory =
-   `gtm-sprint-designer`**, Output Directory left at the framework default.
+2. Project Settings → Build & Deployment: **Framework = Next.js**; leave Root Directory and
+   Output Directory at their defaults (the app lives at the repo root).
 3. Add the remaining env vars (`ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `ADMIN_EMAIL`;
    `APP_URL` optional — magic links fall back to the deployment URL) and redeploy.
 

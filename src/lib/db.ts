@@ -8,7 +8,7 @@ import path from "node:path";
 if (!process.env.DATABASE_URL) {
   const candidates = [
     path.join(process.cwd(), "prisma", "dev.db"),
-    path.join(process.cwd(), "gtm-sprint-designer", "prisma", "dev.db"),
+    path.join(process.cwd(), "gtm-designer", "prisma", "dev.db"),
   ];
   const found = candidates.find((p) => fs.existsSync(p));
   if (found) process.env.DATABASE_URL = `file:${found}`;
