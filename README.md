@@ -31,13 +31,13 @@ link is printed to the terminal running the dev server. Sign in with `ADMIN_EMAI
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | yes | `file:./dev.db` locally; a Postgres URL in production |
-| `ANTHROPIC_API_KEY` | yes | Server-side only; never shipped to the client |
-| `ANTHROPIC_MODEL` | no | Model override; defaults to `claude-opus-5` |
-| `APP_URL` | yes | Absolute base URL used in magic-link emails |
-| `ADMIN_EMAIL` | yes | The single admin account |
-| `RESEND_API_KEY` | no | If set, magic links are emailed via Resend; if unset, printed to the server console |
-| `EMAIL_FROM` | no | From address for magic-link emails |
+| `DATABASE_URL` | yes locally | `file:./dev.db` locally. In production, a `postgres://` URL, **or** the Supabase integration's `POSTGRES_PRISMA_URL` / `POSTGRES_URL` / `POSTGRES_URL_NON_POOLING` (those are read automatically). Do not set `file:./dev.db` on Vercel. |
+| `ANTHROPIC_API_KEY` | yes | Server-side only; never `NEXT_PUBLIC_`, never shipped to the client |
+| `ANTHROPIC_MODEL` | no | Model override; defaults to `claude-opus-5` (an active Claude API id) |
+| `APP_URL` | yes locally | Absolute base URL used in magic-link emails. On Vercel, set the public `https://` origin. A `localhost` value is ignored so links are not sent to a laptop. |
+| `ADMIN_EMAIL` | yes | The single admin account (`/admin` only — not a sign-in allowlist) |
+| `RESEND_API_KEY` | yes in production | Magic links are emailed via Resend. If unset locally, the link is printed to the server console. Production returns an error instead of pretending the email was sent. |
+| `EMAIL_FROM` | no | From address for magic-link emails. Must be `onboarding@resend.dev` or an address on a domain verified in Resend. |
 
 ## Seed command
 
@@ -81,28 +81,37 @@ citable).
 
 ## Deploying to Vercel
 
-SQLite doesn't persist on serverless — use Postgres in production:
+SQLite doesn't persist on serverless — use Postgres in production. This app does **not** use
+Supabase Auth (no redirect URLs, no RLS). Supabase is only a Postgres database, via the
+Vercel integration's `POSTGRES_*` variables.
 
-1. In the Vercel project: Storage → Create Database (Neon, free tier works) and connect it —
-   this sets a Postgres `DATABASE_URL` automatically.
+1. Attach a database: Vercel → Storage → Neon (sets `DATABASE_URL`), **or** the Supabase
+   integration (sets `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`).
+   Delete `DATABASE_URL` if it was copied from `.env` as `file:./dev.db` — that value
+   points at a laptop file and hides the Supabase connection.
 2. Project Settings → Build & Deployment: **Framework = Next.js**; leave Root Directory and
    Output Directory at their defaults (the app lives at the repo root).
-3. Add the remaining env vars (`ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `ADMIN_EMAIL`;
-   `APP_URL` optional — magic links fall back to the deployment URL) and redeploy.
+3. Add `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `ADMIN_EMAIL`, and `APP_URL` (the public
+   `https://` origin, not `http://localhost:3001`). Set `EMAIL_FROM` to a sender on a
+   domain verified in Resend. Redeploy after saving env vars — a running deployment does
+   not pick them up.
 
-The build script detects a Postgres `DATABASE_URL`, switches the Prisma provider for that
-build (the committed schema stays sqlite for local dev), pushes the schema, and seeds the
-corpus — no manual migration step. On other hosts, flip the provider in
-`prisma/schema.prisma` by hand and run `npm run setup` against your database.
+The build script detects a Postgres URL (including Supabase's `POSTGRES_URL_NON_POOLING`),
+switches the Prisma provider for that build (the committed schema stays sqlite for local
+dev), pushes the schema, and seeds the corpus — no manual migration step. On other hosts,
+flip the provider in `prisma/schema.prisma` by hand and run `npm run setup` against your
+database.
 
-Note on Resend's free tier: until you verify a sending domain, Resend only delivers to the
-email address that owns the Resend account — fine for testing and the admin login.
+Note on Resend: `onboarding@resend.dev`, and any unverified domain, only delivers to the
+email address that owns the Resend account. Other people can sign in only after the
+sending domain is verified. `ADMIN_EMAIL` only unlocks `/admin`; it does not restrict login.
 
 The build command is the default `npm run build` (it runs `prisma generate` first). On Vercel,
 the `vercel-build` script also runs `prisma db push` + `prisma db seed` against `DATABASE_URL`
 (both are idempotent), so the schema and corpus follow every deploy.
 
-**Preview mode without a database:** if `DATABASE_URL` is not set in Vercel, the build seeds a
-SQLite file and ships it read-only with the deployment. Public pages render the live corpus,
-but anything that writes (sign-in, designing, verdicts) needs a real Postgres `DATABASE_URL` —
-plus `ANTHROPIC_API_KEY` for the designer and `RESEND_API_KEY` for sign-in emails.
+**Preview mode without a database:** if no Postgres URL is set (`DATABASE_URL` or the
+Supabase `POSTGRES_*` variables), the build seeds a SQLite file and ships it read-only.
+Public pages render the corpus, but sign-in and designing return a clear error until a
+Postgres database is attached. The designer also needs `ANTHROPIC_API_KEY`, and sign-in
+emails need `RESEND_API_KEY`.

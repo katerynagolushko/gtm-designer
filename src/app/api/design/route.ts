@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { selectEvidence, caseForCard } from "@/lib/cases";
-import { designExperiment, DesignParseError, DesignRefusedError } from "@/lib/design";
+import { designExperiment, DesignConfigError, DesignParseError, DesignRefusedError } from "@/lib/design";
 import { DesignInputSchema } from "@/lib/schema";
-import { prisma } from "@/lib/db";
+import { prisma, usesReadOnlySqlite } from "@/lib/db";
 
 export const maxDuration = 120;
 
@@ -18,6 +18,13 @@ export async function POST(req: Request) {
   }
   const input = parsed.data;
 
+  if (usesReadOnlySqlite()) {
+    return NextResponse.json(
+      { error: "This deployment has no writable database, so experiments can't be saved." },
+      { status: 503 },
+    );
+  }
+
   const { citable, background } = await selectEvidence(input.channel, input.stage);
 
   let plan;
@@ -26,6 +33,13 @@ export async function POST(req: Request) {
   } catch (e) {
     if (e instanceof DesignRefusedError || e instanceof DesignParseError) {
       return NextResponse.json({ error: e.message }, { status: 502 });
+    }
+    if (e instanceof DesignConfigError) {
+      console.error("design not configured:", e.message);
+      return NextResponse.json(
+        { error: "The design service is not configured on this deployment." },
+        { status: 503 },
+      );
     }
     console.error("design call failed:", e);
     return NextResponse.json({ error: "The design service is unavailable right now." }, { status: 502 });

@@ -5,9 +5,25 @@ import { BENCHMARKS } from "./constants";
 import { PlanSchema, type DesignInput, type Plan } from "./schema";
 import { caseForPrompt, isFailure } from "./cases";
 
-const client = new Anthropic(); // reads ANTHROPIC_API_KEY server-side
+// claude-opus-5 is an active Claude API model id (not retired as of 2026-10).
+const MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-opus-5";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5";
+export class DesignRefusedError extends Error {}
+export class DesignParseError extends Error {}
+export class DesignConfigError extends Error {}
+
+let client: Anthropic | undefined;
+
+function getClient(): Anthropic {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) {
+    throw new DesignConfigError("ANTHROPIC_API_KEY is not set.");
+  }
+  // Construct lazily so a missing key fails the request instead of crashing
+  // the module when the route is imported.
+  client ??= new Anthropic({ apiKey });
+  return client;
+}
 
 const SYSTEM = `You are the GTM Sprint experiment designer for Momentum Mill, built on a corpus of documented founder GTM experiments. You design ONE 4-week outbound experiment with pre-registered numeric kill criteria.
 
@@ -36,11 +52,8 @@ BENCHMARKS: ${JSON.stringify(BENCHMARKS)}
 Design the experiment now.`;
 }
 
-export class DesignRefusedError extends Error {}
-export class DesignParseError extends Error {}
-
 async function callOnce(prompt: string, extraInstruction?: string): Promise<Plan | null> {
-  const response = await client.messages.parse({
+  const response = await getClient().messages.parse({
     model: MODEL,
     max_tokens: 4000,
     system: SYSTEM,

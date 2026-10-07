@@ -4,9 +4,14 @@ const nextConfig: NextConfig = {
   // The app lives inside the Momentum Mill site repo; pin the root so Next
   // doesn't pick up the parent Vite project's lockfile and postcss config.
   turbopack: { root: __dirname },
+  // Keep Prisma's query engine external so the serverless bundle includes the
+  // rhel binary instead of a rewritten path that only resolves in `next dev`.
+  serverExternalPackages: ["@prisma/client", "prisma"],
   // Ship the build-time-seeded SQLite file with every serverless route so a
   // preview deployment renders the corpus before a real database is attached.
-  outputFileTracingIncludes: { "/**": ["./prisma/dev.db"] },
+  outputFileTracingIncludes: {
+    "/**": ["./prisma/dev.db", "./node_modules/.prisma/client/**/*"],
+  },
 };
 
 export default nextConfig;

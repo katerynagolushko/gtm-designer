@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createLoginToken } from "@/lib/auth";
-import { sendMagicLink } from "@/lib/email";
+import { usesReadOnlySqlite } from "@/lib/db";
+import { MagicLinkError, sendMagicLink } from "@/lib/email";
+import { magicLinkBase } from "@/lib/public-url";
 
 const InputSchema = z.object({ email: z.string().trim().toLowerCase().email().max(320) });
 
@@ -13,14 +15,26 @@ export async function POST(req: Request) {
   }
   const { email } = parsed.data;
 
+  if (usesReadOnlySqlite()) {
+    return NextResponse.json(
+      {
+        error:
+          "Sign-in isn't available on this deployment yet — it has no writable database. Connect Postgres and redeploy.",
+      },
+      { status: 503 },
+    );
+  }
+
   const token = await createLoginToken(email);
-  const base = process.env.APP_URL || new URL(req.url).origin;
-  const url = `${base}/auth/verify?token=${token}`;
+  const url = `${magicLinkBase(req)}/auth/verify?token=${token}`;
 
   try {
     await sendMagicLink(email, url);
   } catch (e) {
     console.error("magic link send failed:", e);
+    if (e instanceof MagicLinkError) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    }
     return NextResponse.json({ error: "Could not send the sign-in email. Try again." }, { status: 502 });
   }
 
